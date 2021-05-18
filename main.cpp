@@ -10,15 +10,15 @@ using namespace std;
 #define N 4
 #define PI (2*acos(0.0))
 
-class Point{
+class Vector{
 public:
     double x, y, z;
 
-    Point() : x(0), y(0), z(0) {}
+    Vector() : x(0), y(0), z(0) {}
 
-    Point(double x, double y, double z) : x(x), y(y), z(z) {}
+    Vector(double x, double y, double z) : x(x), y(y), z(z) {}
 
-    explicit Point(const string& line) : x(0), y(0), z(0) {
+    explicit Vector(const string& line) : x(0), y(0), z(0) {
         stringstream ss(line);
         ss >> x;
         ss >> y;
@@ -32,6 +32,18 @@ public:
         z = z/value;
     }
 
+    double dotProduct(Vector* v) const {
+        return x*v->x + y*v->y + z*v->z;
+    }
+
+    Vector* crossProduct(Vector* v) const {
+        double a = y * v->z - z * v->y;
+        double b = z * v->x - x * v->z;
+        double c = x * v->y - y * v->x;
+
+        return new Vector(a, b, c);
+    }
+
     string toString() const {
         return to_string(x) + " " + to_string(y) + " " + to_string(z);
     }
@@ -39,9 +51,9 @@ public:
 
 class Triangle{
 public:
-    Point *a, *b, *c;
+    Vector *a, *b, *c;
 
-    Triangle(Point *a, Point *b, Point *c) : a(a), b(b), c(c) {}
+    Triangle(Vector *a, Vector *b, Vector *c) : a(a), b(b), c(c) {}
 
     string toString() const {
         return a->toString() + "\n" + b->toString() + "\n" + c->toString();
@@ -85,7 +97,7 @@ double** product(double** a, double** b) {
     return result;
 }
 
-Point* transform(double** matrix, const Point& p) {
+Vector* transform(double** matrix, const Vector& p) {
     double resultMatrix[N];
     double pointMatrix[] = {p.x, p.y, p.z, 1};
 
@@ -95,42 +107,38 @@ Point* transform(double** matrix, const Point& p) {
         }
     }
 
-    return new Point(resultMatrix[0], resultMatrix[1], resultMatrix[2]);
+    return new Vector(resultMatrix[0], resultMatrix[1], resultMatrix[2]);
 }
 
-Point rotate(Point* p, Point* axis, double angle) {
-    Point crossProduct, result;
+Vector* rotate(Vector* v, Vector* axis, double angle) {
     double theta = angle * (PI/180);
-    double dotProduct = p->x*axis->x + p->y*axis->y + p->z*axis->z;
+    double dotProduct = axis->dotProduct(v);
+    Vector* crossProduct = axis->crossProduct(v);
 
-    crossProduct.x = axis->y*p->z - axis->z*p->y;
-    crossProduct.y = axis->z*p->x - axis->x*p->z;
-    crossProduct.z = axis->x*p->y - axis->y*p->x;
+    double a = v->x * cos(theta) + crossProduct->x * sin(theta) + axis->x * dotProduct * (1 - cos(theta));
+    double b = v->y * cos(theta) + crossProduct->y * sin(theta) + axis->y * dotProduct * (1 - cos(theta));
+    double c = v->z * cos(theta) + crossProduct->z * sin(theta) + axis->z * dotProduct * (1 - cos(theta));
 
-    result.x = p->x * cos(theta) + crossProduct.x*sin(theta) + axis->x*dotProduct*(1-cos(theta));
-    result.y = p->y * cos(theta) + crossProduct.y*sin(theta) + axis->y*dotProduct*(1-cos(theta));
-    result.z = p->z * cos(theta) + crossProduct.z*sin(theta) + axis->z*dotProduct*(1-cos(theta));
-
-    return result;
+    return new Vector(a, b, c);
 }
 
-double** makeRotationMatrix(Point* axis, double angle) {
-    Point c1 = rotate(new Point(1, 0, 0), axis, angle);
-    Point c2 = rotate(new Point(0, 1, 0), axis, angle);
-    Point c3 = rotate(new Point(0, 0, 1), axis, angle);
+double** makeRotationMatrix(Vector* axis, double angle) {
+    Vector* c1 = rotate(new Vector(1, 0, 0), axis, angle);
+    Vector* c2 = rotate(new Vector(0, 1, 0), axis, angle);
+    Vector* c3 = rotate(new Vector(0, 0, 1), axis, angle);
 
     double** result = initializeMatrix();
-    result[0][0] = c1.x;
-    result[1][0] = c1.y;
-    result[2][0] = c1.z;
+    result[0][0] = c1->x;
+    result[1][0] = c1->y;
+    result[2][0] = c1->z;
 
-    result[0][1] = c2.x;
-    result[1][1] = c2.y;
-    result[2][1] = c2.z;
+    result[0][1] = c2->x;
+    result[1][1] = c2->y;
+    result[2][1] = c2->z;
 
-    result[0][2] = c3.x;
-    result[1][2] = c3.y;
-    result[2][2] = c3.z;
+    result[0][2] = c3->x;
+    result[1][2] = c3->y;
+    result[2][2] = c3->z;
 
     return result;
 }
@@ -147,7 +155,7 @@ void printMatrix(double** matrix) {
 
 
 int main() {
-    //Point eye, look, up;
+    //Vector eye, look, up;
     double fovX = 1, fovY, aspectRatio, near, far;
 
     string data, line;
@@ -157,18 +165,25 @@ int main() {
     sceneFile.open(sceneFileName);
 
     getline(sceneFile, line);
-    Point eye(line);
+    Vector eye(line);
 
     getline(sceneFile, line);
-    Point look(line);
+    Vector look(line);
 
     getline(sceneFile, line);
-    Point up(line);
+    Vector up(line);
 
     sceneFile >> fovY;
     sceneFile >> aspectRatio;
     sceneFile >> near;
     sceneFile >> far;
+
+    Vector l, r, u;
+    l.x = look.x - eye.x;
+    l.y = look.y - eye.y;
+    l.z = look.z - eye.z;
+
+    l.normalize();
 
 
     /*cout << eye.toString() << endl;
@@ -192,13 +207,13 @@ int main() {
     while(getline(sceneFile, line)) {
         if (line == "triangle") {
             getline(sceneFile, line);
-            Point a(line);
+            Vector a(line);
 
             getline(sceneFile, line);
-            Point b(line);
+            Vector b(line);
 
             getline(sceneFile, line);
-            Point c(line);
+            Vector c(line);
 
             //triangles.push_back(new Triangle(*s.top()->transform(a), *s.top()->transform(a), *s.top()->transform(a)));
             triangles.push_back(new Triangle(transform(s.top(), a), transform(s.top(), b), transform(s.top(), c)));
@@ -223,7 +238,7 @@ int main() {
             sceneFile >> y;
             sceneFile >> z;
 
-            auto* axis = new Point(x, y, z);
+            auto* axis = new Vector(x, y, z);
             axis->normalize();
 
             double** rotationMatrix = makeRotationMatrix(axis, angle);
