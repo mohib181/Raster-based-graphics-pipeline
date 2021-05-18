@@ -3,22 +3,33 @@
 #include <stack>
 #include <vector>
 #include <sstream>
+#include <cmath>
 
 using namespace std;
 
 #define N 4
+#define PI (2*acos(0.0))
 
 class Point{
 public:
     double x, y, z;
 
+    Point() : x(0), y(0), z(0) {}
+
     Point(double x, double y, double z) : x(x), y(y), z(z) {}
 
-    Point(const string& line) {
+    explicit Point(const string& line) : x(0), y(0), z(0) {
         stringstream ss(line);
         ss >> x;
         ss >> y;
         ss >> z;
+    }
+
+    void normalize() {
+        double value = sqrt(x*x + y*y + z*z);
+        x = x/value;
+        y = y/value;
+        z = z/value;
     }
 
     string toString() const {
@@ -28,78 +39,31 @@ public:
 
 class Triangle{
 public:
-    Point a, b, c;
+    Point *a, *b, *c;
 
-    Triangle(const Point &a, const Point &b, const Point &c) : a(a), b(b), c(c) {}
+    Triangle(Point *a, Point *b, Point *c) : a(a), b(b), c(c) {}
 
     string toString() const {
-        return a.toString() + "\n" + b.toString() + "\n" + c.toString();
+        return a->toString() + "\n" + b->toString() + "\n" + c->toString();
     }
 };
 
-class Matrix{
-public:
-    int n;
-    bool nop;
+double** initializeMatrix() {
     double** matrix;
+    matrix = new double*[N];
 
-    explicit Matrix(int n, bool nop){
-        this->n = n;
-        this->nop = nop;
-        matrix = new double*[n];
-
-        for (int i = 0; i < n; ++i) {
-            matrix[i] = new double[n];
-            for (int j = 0; j < n; ++j) {
-                matrix[i][j] = (i==j) ? 1: 0;
-            }
+    for (int i = 0; i < N; ++i) {
+        matrix[i] = new double[N];
+        for (int j = 0; j < N; ++j) {
+            matrix[i][j] = (i==j) ? 1 : 0;
         }
     }
 
-    double** product(const Matrix& mat) const {
-        double** result;
-        result = new double*[n];
+    return matrix;
+}
 
-        for (int i = 0; i < n; ++i) {
-            result[i] = new double[n];
-            for (int j = 0; j < n; ++j) {
-                result[i][j] = 0;
-            }
-        }
 
-        for (int i = 0; i < n; ++i) {
-            for (int j = 0; j < n; ++j) {
-                for (int k = 0; k < n; ++k) {
-                    result[i][j] += matrix[i][k]*mat.matrix[k][j];
-                }
-            }
-        }
-
-        return result;
-    }
-
-    Point* transform(const Point& p) const {
-        double result[n];
-        double pointMatrix[] = {p.x, p.y, p.z, 1};
-
-        for (int i = 0; i < n; ++i) {
-            for (int j = 0; j < n; ++j) {
-                result[i] += matrix[i][j]*pointMatrix[j];
-            }
-        }
-
-        return new Point(result[0], result[1], result[2]);
-    }
-
-    virtual ~Matrix() {
-        for (int i = 0; i < n; ++i) {
-            delete[] matrix[i];
-        }
-        delete[] matrix;
-    }
-};
-
-double** product(double a[N][N], double b[N][N]) {
+double** product(double** a, double** b) {
     double** result;
     result = new double*[N];
 
@@ -121,11 +85,68 @@ double** product(double a[N][N], double b[N][N]) {
     return result;
 }
 
+Point* transform(double** matrix, const Point& p) {
+    double resultMatrix[N];
+    double pointMatrix[] = {p.x, p.y, p.z, 1};
+
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            resultMatrix[i] += matrix[i][j]*pointMatrix[j];
+        }
+    }
+
+    return new Point(resultMatrix[0], resultMatrix[1], resultMatrix[2]);
+}
+
+Point rotate(Point* p, Point* axis, double angle) {
+    Point crossProduct, result;
+    double theta = angle * (PI/180);
+    double dotProduct = p->x*axis->x + p->y*axis->y + p->z*axis->z;
+
+    crossProduct.x = axis->y*p->z - axis->z*p->y;
+    crossProduct.y = axis->z*p->x - axis->x*p->z;
+    crossProduct.z = axis->x*p->y - axis->y*p->x;
+
+    result.x = p->x * cos(theta) + crossProduct.x*sin(theta) + axis->x*dotProduct*(1-cos(theta));
+    result.y = p->y * cos(theta) + crossProduct.y*sin(theta) + axis->y*dotProduct*(1-cos(theta));
+    result.z = p->z * cos(theta) + crossProduct.z*sin(theta) + axis->z*dotProduct*(1-cos(theta));
+
+    return result;
+}
+
+double** makeRotationMatrix(Point* axis, double angle) {
+    Point c1 = rotate(new Point(1, 0, 0), axis, angle);
+    Point c2 = rotate(new Point(0, 1, 0), axis, angle);
+    Point c3 = rotate(new Point(0, 0, 1), axis, angle);
+
+    double** result = initializeMatrix();
+    result[0][0] = c1.x;
+    result[1][0] = c1.y;
+    result[2][0] = c1.z;
+
+    result[0][1] = c2.x;
+    result[1][1] = c2.y;
+    result[2][1] = c2.z;
+
+    result[0][2] = c3.x;
+    result[1][2] = c3.y;
+    result[2][2] = c3.z;
+
+    return result;
+}
+
+void printMatrix(double** matrix) {
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            cout << matrix[i][j] << " ";
+        }
+        cout << endl;
+    }
+    cout << endl;
+}
+
 
 int main() {
-    stack<Matrix*> s;
-    vector<Triangle*> triangles;
-
     //Point eye, look, up;
     double fovX = 1, fovY, aspectRatio, near, far;
 
@@ -160,8 +181,13 @@ int main() {
     */
 
 
-    auto* top = new Matrix(N, false);
-    s.push(top);
+    //auto* top = new Matrix(N, false);
+    stack<double**> s;
+    stack<int> pushPoints;
+    vector<Triangle*> triangles;
+    cout << pushPoints.size() << endl;
+
+    s.push(initializeMatrix());
 
     while(getline(sceneFile, line)) {
         if (line == "triangle") {
@@ -174,38 +200,73 @@ int main() {
             getline(sceneFile, line);
             Point c(line);
 
-            triangles.push_back(new Triangle(*s.top()->transform(a), *s.top()->transform(a), *s.top()->transform(a)));
+            //triangles.push_back(new Triangle(*s.top()->transform(a), *s.top()->transform(a), *s.top()->transform(a)));
+            triangles.push_back(new Triangle(transform(s.top(), a), transform(s.top(), b), transform(s.top(), c)));
         }
         else if (line == "translate") {
-            getline(sceneFile, line);
-            Point translate(line);
+            double** translateMatrix = initializeMatrix();
+            sceneFile >> translateMatrix[0][3];
+            sceneFile >> translateMatrix[1][3];
+            sceneFile >> translateMatrix[2][3];
 
-            Matrix translateMatrix(N, false);
-            translateMatrix.matrix[N-1][0] = translate.x;
-            translateMatrix.matrix[N-1][1] = translate.y;
-            translateMatrix.matrix[N-1][2] = translate.z;
+            cout << "translate" << endl;
+            printMatrix(s.top());
+            printMatrix(translateMatrix);
+            s.push(product(s.top(), translateMatrix));
+            printMatrix(s.top());
         }
         else if (line == "rotate") {
-            getline(sceneFile, line);
-            //Point rotate(line);
+            double angle, x, y, z;
 
+            sceneFile >> angle;
+            sceneFile >> x;
+            sceneFile >> y;
+            sceneFile >> z;
+
+            auto* axis = new Point(x, y, z);
+            axis->normalize();
+
+            double** rotationMatrix = makeRotationMatrix(axis, angle);
+
+            cout << "rotate" << endl;
+            printMatrix(s.top());
+            printMatrix(rotationMatrix);
+            s.push(product(s.top(), rotationMatrix));
+            printMatrix(s.top());
         }
         else if (line == "scale") {
-            getline(sceneFile, line);
-            Point scale(line);
+            double** scaleMatrix = initializeMatrix();
+            sceneFile >> scaleMatrix[0][0];
+            sceneFile >> scaleMatrix[1][1];
+            sceneFile >> scaleMatrix[2][2];
+
+            cout << "scale" << endl;
+            printMatrix(s.top());
+            printMatrix(scaleMatrix);
+            s.push(product(s.top(), scaleMatrix));
+            printMatrix(s.top());
 
         }
         else if (line == "push") {
-
+            pushPoints.push(s.size());
+            cout << "pushed with size " << s.size() << endl;
+            printMatrix(s.top());
         }
         else if (line == "pop") {
-
+            if(pushPoints.empty()) {
+                cout << "Error: pop before push(pop ignored)" << endl;
+            } else {
+                printMatrix(s.top());
+                int pushPoint = pushPoints.top();
+                while(s.size() != pushPoint) {
+                    s.pop();
+                }
+                pushPoints.pop();
+                printMatrix(s.top());
+            }
         }
         else if (line == "end") {
             break;
-        }
-        else {
-            cout << "something is wrong" << endl;
         }
 
     }
