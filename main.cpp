@@ -44,6 +44,22 @@ public:
         return new Vector(a, b, c);
     }
 
+    Vector* operator + (Vector* v) const {
+        double a = x + v->x;
+        double b = y + v->y;
+        double c = z + v->z;
+
+        return new Vector(a, b, c);
+    }
+
+    Vector* operator - (Vector* v) const {
+        double a = x - v->x;
+        double b = y - v->y;
+        double c = z - v->z;
+
+        return new Vector(a, b, c);
+    }
+
     string toString() const {
         return to_string(x) + " " + to_string(y) + " " + to_string(z);
     }
@@ -74,7 +90,6 @@ double** initializeMatrix() {
     return matrix;
 }
 
-
 double** product(double** a, double** b) {
     double** result;
     result = new double*[N];
@@ -97,9 +112,9 @@ double** product(double** a, double** b) {
     return result;
 }
 
-Vector* transform(double** matrix, const Vector& p) {
+Vector* transform(double** matrix, const Vector* p) {
     double resultMatrix[N];
-    double pointMatrix[] = {p.x, p.y, p.z, 1};
+    double pointMatrix[] = {p->x, p->y, p->z, 1};
 
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
@@ -153,37 +168,38 @@ void printMatrix(double** matrix) {
     cout << endl;
 }
 
+Triangle* transformTriangle(Triangle* triangle, double** transformMatrix) {
+    return new Triangle(transform(transformMatrix, triangle->a), transform(transformMatrix, triangle->b), transform(transformMatrix, triangle->c));
+}
 
 int main() {
-    //Vector eye, look, up;
-    double fovX = 1, fovY, aspectRatio, near, far;
+    Vector *l, *r, *u;
+    Vector *eye, *look, *up;
+    double fovX, fovY, aspectRatio, near, far;
 
-    string data, line;
     string sceneFileName = "scene.txt";
-    ifstream sceneFile;
+    string modelOutputFileName = "out_stage1.txt";
+    string viewOutputFileName = "out_stage2.txt";
+    string projectionOutputFileName = "out_stage3.txt";
 
+    string line;
+    ifstream sceneFile;
+    ofstream outputFile;
     sceneFile.open(sceneFileName);
 
     getline(sceneFile, line);
-    Vector eye(line);
+    eye = new Vector(line);
 
     getline(sceneFile, line);
-    Vector look(line);
+    look = new Vector(line);
 
     getline(sceneFile, line);
-    Vector up(line);
+    up = new Vector(line);
 
     sceneFile >> fovY;
     sceneFile >> aspectRatio;
     sceneFile >> near;
     sceneFile >> far;
-
-    Vector l, r, u;
-    l.x = look.x - eye.x;
-    l.y = look.y - eye.y;
-    l.z = look.z - eye.z;
-
-    l.normalize();
 
 
     /*cout << eye.toString() << endl;
@@ -196,26 +212,24 @@ int main() {
     */
 
 
-    //auto* top = new Matrix(N, false);
     stack<double**> s;
     stack<int> pushPoints;
     vector<Triangle*> triangles;
-    cout << pushPoints.size() << endl;
 
     s.push(initializeMatrix());
 
     while(getline(sceneFile, line)) {
         if (line == "triangle") {
+            Vector *a, *b, *c;
             getline(sceneFile, line);
-            Vector a(line);
+            a = new Vector(line);
 
             getline(sceneFile, line);
-            Vector b(line);
+            b = new Vector(line);
 
             getline(sceneFile, line);
-            Vector c(line);
+            c = new Vector(line);
 
-            //triangles.push_back(new Triangle(*s.top()->transform(a), *s.top()->transform(a), *s.top()->transform(a)));
             triangles.push_back(new Triangle(transform(s.top(), a), transform(s.top(), b), transform(s.top(), c)));
         }
         else if (line == "translate") {
@@ -224,11 +238,10 @@ int main() {
             sceneFile >> translateMatrix[1][3];
             sceneFile >> translateMatrix[2][3];
 
-            cout << "translate" << endl;
+            /*cout << "translate" << endl;
             printMatrix(s.top());
-            printMatrix(translateMatrix);
+            printMatrix(translateMatrix);*/
             s.push(product(s.top(), translateMatrix));
-            printMatrix(s.top());
         }
         else if (line == "rotate") {
             double angle, x, y, z;
@@ -243,11 +256,10 @@ int main() {
 
             double** rotationMatrix = makeRotationMatrix(axis, angle);
 
-            cout << "rotate" << endl;
+            /*cout << "rotate" << endl;
             printMatrix(s.top());
-            printMatrix(rotationMatrix);
+            printMatrix(rotationMatrix);*/
             s.push(product(s.top(), rotationMatrix));
-            printMatrix(s.top());
         }
         else if (line == "scale") {
             double** scaleMatrix = initializeMatrix();
@@ -255,29 +267,28 @@ int main() {
             sceneFile >> scaleMatrix[1][1];
             sceneFile >> scaleMatrix[2][2];
 
-            cout << "scale" << endl;
+            /*cout << "scale" << endl;
             printMatrix(s.top());
-            printMatrix(scaleMatrix);
+            printMatrix(scaleMatrix);*/
             s.push(product(s.top(), scaleMatrix));
-            printMatrix(s.top());
-
         }
         else if (line == "push") {
             pushPoints.push(s.size());
-            cout << "pushed with size " << s.size() << endl;
-            printMatrix(s.top());
+
+            //cout << "pushed with size " << s.size() << endl;
+            //printMatrix(s.top());
         }
         else if (line == "pop") {
             if(pushPoints.empty()) {
                 cout << "Error: pop before push(pop ignored)" << endl;
             } else {
-                printMatrix(s.top());
+                //printMatrix(s.top());
                 int pushPoint = pushPoints.top();
                 while(s.size() != pushPoint) {
                     s.pop();
                 }
                 pushPoints.pop();
-                printMatrix(s.top());
+                //printMatrix(s.top());
             }
         }
         else if (line == "end") {
@@ -287,9 +298,72 @@ int main() {
     }
     sceneFile.close();
 
+    outputFile.open(modelOutputFileName);
     for (auto & triangle : triangles) {
-        cout << triangle->toString() << endl << endl;
+        outputFile << triangle->toString() << endl << endl;
     }
+    outputFile.close();
+
+
+    //task 2 related calculation
+    l = *look-eye;
+    l->normalize();
+
+    r = l->crossProduct(up);
+    r->normalize();
+
+    u = r->crossProduct(l);
+
+    double** eyeTranslateMatrix = initializeMatrix();
+    eyeTranslateMatrix[0][3] = -eye->x;
+    eyeTranslateMatrix[1][3] = -eye->y;
+    eyeTranslateMatrix[2][3] = -eye->z;
+    //printMatrix(eyeTranslateMatrix);
+
+    double** eyeRotateMatrix = initializeMatrix();
+    eyeRotateMatrix[0][0] = r->x;
+    eyeRotateMatrix[0][1] = r->y;
+    eyeRotateMatrix[0][2] = r->z;
+
+    eyeRotateMatrix[1][0] = u->x;
+    eyeRotateMatrix[1][1] = u->y;
+    eyeRotateMatrix[1][2] = u->z;
+
+    eyeRotateMatrix[2][0] = -l->x;
+    eyeRotateMatrix[2][1] = -l->y;
+    eyeRotateMatrix[2][2] = -l->z;
+    //printMatrix(eyeRotateMatrix);
+
+    double** viewMatrix = product(eyeRotateMatrix, eyeTranslateMatrix);
+    //printMatrix(viewMatrix);
+
+    outputFile.open(viewOutputFileName);
+    for (auto & triangle : triangles) {
+        outputFile << transformTriangle(triangle, viewMatrix)->toString() << endl << endl;
+    }
+    outputFile.close();
+
+    //task 3 related calculation
+    fovX = fovY * aspectRatio;
+    double _t = near * tan((fovY/2)*(PI/180));
+    double _r = near * tan((fovX/2)*(PI/180));
+
+    double** projectionMatrix = initializeMatrix();
+    projectionMatrix[0][0] = near/_r;
+    projectionMatrix[1][1] = near/_t;
+    projectionMatrix[2][2] = -(far+near)/(far-near);
+    projectionMatrix[2][3] = (2*far*near)/(far-near);
+    projectionMatrix[3][2] = -1;
+    projectionMatrix[3][3] = 0;
+    //printMatrix(projectionMatrix);
+
+    outputFile.open(projectionOutputFileName);
+    for (auto & triangle : triangles) {
+        outputFile << transformTriangle(triangle, projectionMatrix)->toString() << endl << endl;
+    }
+    outputFile.close();
+
+
 
     return 0;
 }
