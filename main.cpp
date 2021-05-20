@@ -113,7 +113,7 @@ double** product(double** a, double** b) {
 }
 
 Vector* transform(double** matrix, const Vector* p) {
-    double resultMatrix[N];
+    double resultMatrix[N] = {0, 0, 0, 0} ;
     double pointMatrix[] = {p->x, p->y, p->z, 1};
 
     for (int i = 0; i < N; ++i) {
@@ -122,7 +122,7 @@ Vector* transform(double** matrix, const Vector* p) {
         }
     }
 
-    return new Vector(resultMatrix[0], resultMatrix[1], resultMatrix[2]);
+    return new Vector(resultMatrix[0]/resultMatrix[3], resultMatrix[1]/resultMatrix[3], resultMatrix[2]/resultMatrix[3]);
 }
 
 Vector* rotate(Vector* v, Vector* axis, double angle) {
@@ -158,7 +158,8 @@ double** makeRotationMatrix(Vector* axis, double angle) {
     return result;
 }
 
-void printMatrix(double** matrix) {
+void printMatrix(double** matrix, const char *message = nullptr) {
+    if(message != nullptr) cout << message << endl;
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
             cout << matrix[i][j] << " ";
@@ -318,7 +319,6 @@ int main() {
     eyeTranslateMatrix[0][3] = -eye->x;
     eyeTranslateMatrix[1][3] = -eye->y;
     eyeTranslateMatrix[2][3] = -eye->z;
-    //printMatrix(eyeTranslateMatrix);
 
     double** eyeRotateMatrix = initializeMatrix();
     eyeRotateMatrix[0][0] = r->x;
@@ -332,16 +332,17 @@ int main() {
     eyeRotateMatrix[2][0] = -l->x;
     eyeRotateMatrix[2][1] = -l->y;
     eyeRotateMatrix[2][2] = -l->z;
-    //printMatrix(eyeRotateMatrix);
 
     double** viewMatrix = product(eyeRotateMatrix, eyeTranslateMatrix);
-    //printMatrix(viewMatrix);
+    //printMatrix(viewMatrix, "viewMatrix:");
 
+    cout << "view" << endl;
     outputFile.open(viewOutputFileName);
     for (auto & triangle : triangles) {
         outputFile << transformTriangle(triangle, viewMatrix)->toString() << endl << endl;
     }
     outputFile.close();
+
 
     //task 3 related calculation
     fovX = fovY * aspectRatio;
@@ -352,14 +353,14 @@ int main() {
     projectionMatrix[0][0] = near/_r;
     projectionMatrix[1][1] = near/_t;
     projectionMatrix[2][2] = -(far+near)/(far-near);
-    projectionMatrix[2][3] = (2*far*near)/(far-near);
+    projectionMatrix[2][3] = -(2*far*near)/(far-near);
     projectionMatrix[3][2] = -1;
     projectionMatrix[3][3] = 0;
-    //printMatrix(projectionMatrix);
+    //printMatrix(projectionMatrix, "projectionMatrix:");
 
     outputFile.open(projectionOutputFileName);
     for (auto & triangle : triangles) {
-        outputFile << transformTriangle(triangle, projectionMatrix)->toString() << endl << endl;
+        outputFile << transformTriangle(triangle, product(projectionMatrix, viewMatrix))->toString() << endl << endl;
     }
     outputFile.close();
 
