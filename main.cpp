@@ -283,13 +283,13 @@ int main() {
     ifstream inputFile;
     ofstream outputFile;
 
-    string dir = "test/4/";
+    string dir = "test/1/";
     string sceneFileName = dir+"scene.txt";
     string configFileName = dir+"config.txt";
-    string modelOutputFileName = "out_stage1.txt";
-    string viewOutputFileName = "out_stage2.txt";
-    string projectionOutputFileName = "out_stage3.txt";
-    string zBufferOutputFileName = "out_z_buffer.txt";
+    string modelOutputFileName = "stage1.txt";
+    string viewOutputFileName = "stage2.txt";
+    string projectionOutputFileName = "stage3.txt";
+    string zBufferOutputFileName = "z_buffer.txt";
     string imageFileName = "out.bmp";
 
     inputFile.open(sceneFileName);
@@ -410,13 +410,12 @@ int main() {
 
 
     //task 4
-    int missing_points = 0;
     int screenWidth, screenHeight;
     double x_min, x_max, y_min, y_max, z_min, z_max;
     double dx, dy, top_y, bottom_y, left_x, right_x;
 
     vector<Triangle*> projectedTriangles;
-    //projectedTriangles.reserve(triangles.size());
+    projectedTriangles.reserve(triangles.size());
 
     inputFile.open(projectionOutputFileName);
     while(getline(inputFile, line)) {
@@ -467,6 +466,7 @@ int main() {
     double** z_buffer;
     Color** frame;
 
+    //memory allocation
     z_buffer = new double*[screenWidth];
     frame = new Color*[screenWidth];
     for (int i = 0; i < screenWidth; ++i) {
@@ -480,24 +480,21 @@ int main() {
 
     for (auto & triangle : projectedTriangles) {
         //cout << "triangle: " << endl << triangle->toString() << endl << endl;
-        double max_point_y, min_point_y;
-        max_point_y = max(max(triangle->a->y, triangle->b->y), triangle->c->y);
-        min_point_y = min(min(triangle->a->y, triangle->b->y), triangle->c->y);
+        double max_point_y = max(max(triangle->a->y, triangle->b->y), triangle->c->y);
+        double min_point_y = min(min(triangle->a->y, triangle->b->y), triangle->c->y);
 
         max_point_y = max_point_y > top_y ? top_y : max_point_y;
         min_point_y = min_point_y < bottom_y ? bottom_y : min_point_y;
 
-        /*cout << "max point on Y: " << max_point_y << endl;
-        cout << "min point on Y: " << min_point_y << endl << endl;*/
-
-
         int top_scanLine, bottom_scanLine;
         int left_scanLine, right_scanLine;
 
-        top_scanLine = round((top_y - max_point_y) / dy);
-        bottom_scanLine = round((top_y - min_point_y) / dy);
+        top_scanLine = (int) round((top_y - max_point_y) / dy);
+        bottom_scanLine = (int) round((top_y - min_point_y) / dy);
 
-        /*cout << "top_scanLine: " << top_scanLine << endl;
+        /*cout << "max point on Y: " << max_point_y << endl;
+        cout << "min point on Y: " << min_point_y << endl << endl;
+        cout << "top_scanLine: " << top_scanLine << endl;
         cout << "bottom_scanLine: " << bottom_scanLine << endl << endl;*/
 
         for (int i = top_scanLine; i <= bottom_scanLine; ++i) {
@@ -517,9 +514,6 @@ int main() {
 
             double x_a, x_b, z_a, z_b;
             if(intersectingPoints.size() == 2) {
-                //cout << intersectingPoints[0].toString() << endl;
-                //cout << intersectingPoints[1].toString() << endl << endl;
-
                 x_a = intersectingPoints[0].x;
                 x_b = intersectingPoints[1].x;
                 z_a = intersectingPoints[0].z;
@@ -531,31 +525,13 @@ int main() {
                 max_point_x = max_point_x > right_x ? right_x : max_point_x;
                 min_point_x = min_point_x < left_x ? left_x : min_point_x;
 
-                left_scanLine = round((min_point_x - left_x) / dx);
-                right_scanLine = round((max_point_x - left_x) / dx);
-
-                //cout << "left_scanLine: " << left_scanLine << endl;
-                //cout << "right_scanLine: " << right_scanLine << endl << endl;
+                left_scanLine = (int) round((min_point_x - left_x) / dx);
+                right_scanLine = (int) round((max_point_x - left_x) / dx);
             }
-            /*else {
-                cout << "\nmissing points: " << ++missing_points << endl;
-                cout << "valid points: " << intersectingPoints.size() << endl;
-
-                cout << Vector(x1, y_s, z1).toString() << endl;
-                cout << Vector(x2, y_s, z2).toString() << endl;
-                cout << Vector(x3, y_s, z3).toString() << endl << endl;
-
-                checkDistance(*triangle->a, *triangle->b, Vector(x1, y_s, z1), true);
-                checkDistance(*triangle->a, *triangle->c, Vector(x2, y_s, z2), true);
-                checkDistance(*triangle->b, *triangle->c, Vector(x3, y_s, z3), true);
-            }*/
 
             for (int j = left_scanLine; j <= right_scanLine && intersectingPoints.size() == 2; ++j) {
                 double x_p = left_x + j*dx;
                 double z_p = z_b - (z_b - z_a)*((x_b - x_p)/(x_b-x_a));
-                /*cout << "a:" << Vector(x_a, y_s, z_a).toString() << endl;
-                cout << "b:" << Vector(x_b, y_s, z_b).toString() << endl;
-                cout << "p:" << Vector(x_p, y_s, z_p).toString() << endl << endl;*/
 
                 if(z_p < z_buffer[i][j] && z_p >= z_min) {
                     z_buffer[i][j] = z_p;
