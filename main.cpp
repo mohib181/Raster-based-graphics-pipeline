@@ -35,11 +35,11 @@ public:
         z = z/value;
     }
 
-    double dotProduct(Vector* v) const {
+    double dotProduct(const Vector* v) const {
         return x*v->x + y*v->y + z*v->z;
     }
 
-    Vector* crossProduct(Vector* v) const {
+    Vector* crossProduct(const Vector* v) const {
         double a = y * v->z - z * v->y;
         double b = z * v->x - x * v->z;
         double c = x * v->y - y * v->x;
@@ -261,16 +261,16 @@ double calculateDistance(Vector a, Vector b) {
     return sqrt((b.x-a.x)*(b.x-a.x) + (b.y-a.y)*(b.y-a.y) + (b.z-a.z)*(b.z-a.z));
 }
 
-bool checkDistance(Vector a, Vector b, Vector c) {
+bool checkDistance(Vector a, Vector b, Vector c, bool debug = false) {
     double dist_ac = fabs(calculateDistance(a,c));
     double dist_bc = fabs(calculateDistance(b,c));
     double dist_ab = fabs(calculateDistance(a,b));
 
+    double epsilon = 0.0000001;
     double t = fabs(dist_ac + dist_bc - dist_ab);
-    //cout << dist_ac << " " << dist_bc << " " << dist_ab << endl;
-    //cout << setprecision(7) << t << endl;
-    cout << "t: " << t << " " << (t <= 0.00001) << endl;
-    if(t <= 0.00001) return true;
+    if(debug) cout << dist_ac << " " << dist_bc << " " << dist_ab << " " << t << endl;
+
+    if(t <= epsilon) return true;
     else return false;
 }
 
@@ -283,7 +283,7 @@ int main() {
     ifstream inputFile;
     ofstream outputFile;
 
-    string dir = "test/3/";
+    string dir = "test/4/";
     string sceneFileName = dir+"scene.txt";
     string configFileName = dir+"config.txt";
     string modelOutputFileName = "out_stage1.txt";
@@ -410,6 +410,7 @@ int main() {
 
 
     //task 4
+    int missing_points = 0;
     int screenWidth, screenHeight;
     double x_min, x_max, y_min, y_max, z_min, z_max;
     double dx, dy, top_y, bottom_y, left_x, right_x;
@@ -455,13 +456,13 @@ int main() {
     left_x = x_min + (dx/2);
     right_x = x_max - (dx/2);
 
-    cout << "y_max: " << y_max << " y_min: " << y_min << endl;
+    /*cout << "y_max: " << y_max << " y_min: " << y_min << endl;
     cout << "x_max: " << x_max << " x_min: " << x_min << endl;
 
     cout << "top_y: " << top_y << " bottom_y: " << bottom_y << endl;
     cout << "left_x: " << left_x << " right_x: " << right_x << endl;
 
-    cout << "dx: " << dx << " dy: " << dy << endl;
+    cout << "dx: " << dx << " dy: " << dy << endl;*/
 
     double** z_buffer;
     Color** frame;
@@ -478,7 +479,7 @@ int main() {
     }
 
     for (auto & triangle : projectedTriangles) {
-        cout << "triangle: " << endl << triangle->toString() << endl << endl;
+        //cout << "triangle: " << endl << triangle->toString() << endl << endl;
         double max_point_y, min_point_y;
         max_point_y = max(max(triangle->a->y, triangle->b->y), triangle->c->y);
         min_point_y = min(min(triangle->a->y, triangle->b->y), triangle->c->y);
@@ -486,8 +487,8 @@ int main() {
         max_point_y = max_point_y > top_y ? top_y : max_point_y;
         min_point_y = min_point_y < bottom_y ? bottom_y : min_point_y;
 
-        cout << "max point on Y: " << max_point_y << endl;
-        cout << "min point on Y: " << min_point_y << endl << endl;
+        /*cout << "max point on Y: " << max_point_y << endl;
+        cout << "min point on Y: " << min_point_y << endl << endl;*/
 
 
         int top_scanLine, bottom_scanLine;
@@ -495,12 +496,11 @@ int main() {
 
         top_scanLine = round((top_y - max_point_y) / dy);
         bottom_scanLine = round((top_y - min_point_y) / dy);
-        //bottom_scanLine = round(screenHeight - fabs((min_point_y - bottom_y) / dy));
 
-        cout << "top_scanLine: " << top_scanLine << endl;
-        cout << "bottom_scanLine: " << bottom_scanLine << endl << endl;
+        /*cout << "top_scanLine: " << top_scanLine << endl;
+        cout << "bottom_scanLine: " << bottom_scanLine << endl << endl;*/
 
-        for (int i = top_scanLine; i < bottom_scanLine; ++i) {
+        for (int i = top_scanLine; i <= bottom_scanLine; ++i) {
             double y_s = top_y - i*dy;
             double z1 = triangle->a->z - (triangle->a->z - triangle->b->z)*((triangle->a->y - y_s)/(triangle->a->y - triangle->b->y));
             double z2 = triangle->a->z - (triangle->a->z - triangle->c->z)*((triangle->a->y - y_s)/(triangle->a->y - triangle->c->y));
@@ -510,23 +510,12 @@ int main() {
             double x2 = triangle->a->x - (triangle->a->x - triangle->c->x)*((triangle->a->y - y_s)/(triangle->a->y - triangle->c->y));
             double x3 = triangle->b->x - (triangle->b->x - triangle->c->x)*((triangle->b->y - y_s)/(triangle->b->y - triangle->c->y));
 
-            /*cout << Vector(x1, y_s, z1).toString() << endl;
-            cout << Vector(x2, y_s, z2).toString() << endl;
-            cout << Vector(x3, y_s, z3).toString() << endl;*/
-
             vector<Vector> intersectingPoints;
             if(checkDistance(*triangle->a, *triangle->b, Vector(x1, y_s, z1))) intersectingPoints.emplace_back(x1, y_s, z1);
             if(checkDistance(*triangle->a, *triangle->c, Vector(x2, y_s, z2))) intersectingPoints.emplace_back(Vector(x2, y_s, z2));
             if(checkDistance(*triangle->b, *triangle->c, Vector(x3, y_s, z3))) intersectingPoints.emplace_back(Vector(x3, y_s, z3));
 
-/*
-            if(!(isnan(z1) || isinf(z1) || isnan(x1) || isinf(x1))) intersectingPoints.emplace_back(Vector(x1, y_s, z1));
-            if(!(isnan(z2) || isinf(z2) || isnan(x2) || isinf(x2))) intersectingPoints.emplace_back(Vector(x2, y_s, z2));
-            if(!(isnan(z3) || isinf(z3) || isnan(x2) || isinf(x3))) intersectingPoints.emplace_back(Vector(x3, y_s, z3));
-*/
-
             double x_a, x_b, z_a, z_b;
-            cout <<"valid points: " << intersectingPoints.size() << endl;
             if(intersectingPoints.size() == 2) {
                 //cout << intersectingPoints[0].toString() << endl;
                 //cout << intersectingPoints[1].toString() << endl << endl;
@@ -544,13 +533,24 @@ int main() {
 
                 left_scanLine = round((min_point_x - left_x) / dx);
                 right_scanLine = round((max_point_x - left_x) / dx);
-                //right_scanLine = round(screenWidth - fabs((right_x - max_point_x) / dx));
 
-                cout << "left_scanLine: " << left_scanLine << endl;
-                cout << "right_scanLine: " << right_scanLine << endl << endl;
+                //cout << "left_scanLine: " << left_scanLine << endl;
+                //cout << "right_scanLine: " << right_scanLine << endl << endl;
             }
+            /*else {
+                cout << "\nmissing points: " << ++missing_points << endl;
+                cout << "valid points: " << intersectingPoints.size() << endl;
 
-            for (int j = left_scanLine; j < right_scanLine && intersectingPoints.size() == 2; ++j) {
+                cout << Vector(x1, y_s, z1).toString() << endl;
+                cout << Vector(x2, y_s, z2).toString() << endl;
+                cout << Vector(x3, y_s, z3).toString() << endl << endl;
+
+                checkDistance(*triangle->a, *triangle->b, Vector(x1, y_s, z1), true);
+                checkDistance(*triangle->a, *triangle->c, Vector(x2, y_s, z2), true);
+                checkDistance(*triangle->b, *triangle->c, Vector(x3, y_s, z3), true);
+            }*/
+
+            for (int j = left_scanLine; j <= right_scanLine && intersectingPoints.size() == 2; ++j) {
                 double x_p = left_x + j*dx;
                 double z_p = z_b - (z_b - z_a)*((x_b - x_p)/(x_b-x_a));
                 /*cout << "a:" << Vector(x_a, y_s, z_a).toString() << endl;
@@ -558,16 +558,11 @@ int main() {
                 cout << "p:" << Vector(x_p, y_s, z_p).toString() << endl << endl;*/
 
                 if(z_p < z_buffer[i][j] && z_p >= z_min) {
-                    /*cout << "z_buffer updated" << endl;
-                    cout << "i: " << i << " j: " << j << " ";
-                    cout << "z_p: " << z_p << " z_buffer[i][j]: " << z_buffer[i][j] << endl;
-                    cout << "r: " << triangle->color.r << " g: " << triangle->color.g << " b: " << triangle->color.b << endl;*/
                     z_buffer[i][j] = z_p;
                     frame[i][j] = triangle->color;
                 }
             }
         }
-
     }
 
     //image save
@@ -584,8 +579,7 @@ int main() {
     outputFile.open(zBufferOutputFileName);
     for(int i=0;i<screenWidth;i++){
         for(int j=0;j<screenHeight;j++){
-            if(z_buffer[i][j] < z_max) outputFile << z_buffer[i][j] << " ";
-            //outputFile << " ";
+            if(z_buffer[i][j] < z_max) outputFile << fixed << setprecision(6) << z_buffer[i][j] << "\t";
         }
         outputFile << endl ;
     }
