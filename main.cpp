@@ -483,8 +483,8 @@ int main() {
         double max_point_y = max(max(triangle->a->y, triangle->b->y), triangle->c->y);
         double min_point_y = min(min(triangle->a->y, triangle->b->y), triangle->c->y);
 
-        max_point_y = max_point_y > top_y ? top_y : max_point_y;
-        min_point_y = min_point_y < bottom_y ? bottom_y : min_point_y;
+        max_point_y = min(max_point_y, top_y);
+        min_point_y = max(min_point_y, bottom_y);
 
         int top_scanLine, bottom_scanLine;
         int left_scanLine, right_scanLine;
@@ -508,7 +508,7 @@ int main() {
             double x3 = triangle->b->x - (triangle->b->x - triangle->c->x)*((triangle->b->y - y_s)/(triangle->b->y - triangle->c->y));
 
             vector<Vector> intersectingPoints;
-            if(checkDistance(*triangle->a, *triangle->b, Vector(x1, y_s, z1))) intersectingPoints.emplace_back(x1, y_s, z1);
+            if(checkDistance(*triangle->a, *triangle->b, Vector(x1, y_s, z1))) intersectingPoints.emplace_back(Vector(x1, y_s, z1));
             if(checkDistance(*triangle->a, *triangle->c, Vector(x2, y_s, z2))) intersectingPoints.emplace_back(Vector(x2, y_s, z2));
             if(checkDistance(*triangle->b, *triangle->c, Vector(x3, y_s, z3))) intersectingPoints.emplace_back(Vector(x3, y_s, z3));
 
@@ -522,8 +522,8 @@ int main() {
                 double max_point_x = max(x_a, x_b);
                 double min_point_x = min(x_a, x_b);
 
-                max_point_x = max_point_x > right_x ? right_x : max_point_x;
-                min_point_x = min_point_x < left_x ? left_x : min_point_x;
+                max_point_x = min(max_point_x, right_x);
+                min_point_x = max(min_point_x, left_x);
 
                 left_scanLine = (int) round((min_point_x - left_x) / dx);
                 right_scanLine = (int) round((max_point_x - left_x) / dx);
